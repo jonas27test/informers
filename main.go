@@ -30,6 +30,11 @@ func main() {
 	if err != nil {
 		log.Panicln(err.Error())
 	}
+<<<<<<< HEAD
+=======
+	// log.
+	// factory := informers.NewSharedInformerFactory(clientset, 0)
+>>>>>>> 4197d16b49254c7c1087ce4f3f082549586abc90
 
 	defer runtime.HandleCrash()
 
