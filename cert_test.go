@@ -10,9 +10,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestCMCertificate(t *testing.T) {
+func before(name string) {
 	log.SetFlags(log.Lshortfile)
-	log.Println("CertTest started")
+	log.Println(name)
+}
+
+func TestCMCertificate(t *testing.T) {
+	before("CertTest started")
 	cert := certGen()
 	log.Println(structs.Map(cert))
 	certString, err := json.Marshal(cert)

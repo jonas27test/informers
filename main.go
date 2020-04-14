@@ -9,8 +9,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/runtime"
 
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -26,37 +30,44 @@ func main() {
 	if err != nil {
 		log.Panicln(err.Error())
 	}
-	// factory := informers.NewSharedInformerFactory(clientset, 0)
 
-	// Grab a dynamic interface that we can create informers from
-	// dc, err := dynamic.NewForConfig(config)
-	// if err != nil {
-	// 	log.Println(err)
-	// }
-	// Create a factory object that we can say "hey, I need to watch this resource"
-	// and it will give us back an informer for it
-	// dfactory := dynamicinformer.NewDynamicSharedInformerFactory(dc, 0)
+	defer runtime.HandleCrash()
 
-	// informer := factory.Core().V1().Pods().Informer()
-	// stopper := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	// dclientset := dynamic.NewForConfigOrDie(config)
-	// dfactory := dynamicinformer.NewDynamicSharedInformerFactory(dclientset, 0)
-	// defer close(stopper)
-	// defer runtime.HandleCrash()
+	clientset := kubernetes.NewForConfigOrDie(config)
+	factory := informers.NewSharedInformerFactory(clientset, 0)
+	log.Println(factory)
 
-	// go Create(dclientset, dfactory)
+	dclientset := dynamic.NewForConfigOrDie(config)
+	dfactory := dynamicinformer.NewDynamicSharedInformerFactory(dclientset, 0)
+
+	// var wg sync.WaitGroup
+
+	// routeUpdates := watchMandants(dfactory, ctx.Done(), &wg)
+
 	namespace := "inf"
 	resource := schema.GroupVersionResource{
 		Group:    "cert-manager.io",
 		Version:  "v1alpha3",
 		Resource: "certificates",
 	}
-	result, err := client.Resource(resource).Namespace(namespace).Create(context.TODO(), cert(), metav1.CreateOptions{})
-	if err != nil {
-		log.Println(err)
+
+controllerLoop:
+	for {
+		select {
+		case <-ctx.Done():
+			break controllerLoop
+			// case: createCert := <-
+		}
 	}
-	fmt.Printf("Created CMCertificate %q.\n", result.GetName())
+	Create(namespace, dclientset, dfactory)
+	// result, err := client.Resource(resource).Namespace(namespace).Create(context.TODO(), Create(namespace, dclientset, dfactory), metav1.CreateOptions{})
+	// if err != nil {
+	// 	log.Println(err)
+	// }
+	// fmt.Printf("Created CMCertificate %q.\n", result.GetName())
 	list, err := client.Resource(resource).Namespace(namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		log.Panicln(err)
