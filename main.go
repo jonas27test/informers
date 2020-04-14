@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	scheme "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 
@@ -16,7 +19,15 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"github.com/fatih/structs"
+	"github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha3"
+	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 )
+
+// var (
+// 	localSchemeBuilder = &SchemeBuilder
+// )
 
 func main() {
 
@@ -30,15 +41,12 @@ func main() {
 	if err != nil {
 		log.Panicln(err.Error())
 	}
-<<<<<<< HEAD
-=======
 	// log.
 	// factory := informers.NewSharedInformerFactory(clientset, 0)
->>>>>>> 4197d16b49254c7c1087ce4f3f082549586abc90
 
 	defer runtime.HandleCrash()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	clientset := kubernetes.NewForConfigOrDie(config)
@@ -46,7 +54,7 @@ func main() {
 	log.Println(factory)
 
 	dclientset := dynamic.NewForConfigOrDie(config)
-	dfactory := dynamicinformer.NewDynamicSharedInformerFactory(dclientset, 0)
+	_ = dynamicinformer.NewDynamicSharedInformerFactory(dclientset, 0)
 
 	// var wg sync.WaitGroup
 
@@ -59,15 +67,15 @@ func main() {
 		Resource: "certificates",
 	}
 
-controllerLoop:
-	for {
-		select {
-		case <-ctx.Done():
-			break controllerLoop
-			// case: createCert := <-
-		}
-	}
-	Create(namespace, dclientset, dfactory)
+	// controllerLoop:
+	// 	for {
+	// 		select {
+	// 		case <-ctx.Done():
+	// 			break controllerLoop
+	// 			// case: createCert := <-
+	// 		}
+	// 	}
+	// Create(namespace, dclientset, dfactory)
 	// result, err := client.Resource(resource).Namespace(namespace).Create(context.TODO(), Create(namespace, dclientset, dfactory), metav1.CreateOptions{})
 	// if err != nil {
 	// 	log.Println(err)
@@ -78,6 +86,68 @@ controllerLoop:
 		log.Panicln(err)
 	}
 	log.Println(list)
+	s := CMCertificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cert-inf-test",
+			Namespace: "inf",
+			// OwnerReferences: map[string]interface{}{},
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "cert-manager.io/v1alpha2",
+			Kind:       "Certificate",
+		},
+		Spec: CMCertSpec{
+			SecretName:   "cert-inf-test",
+			Duration:     "2160h",
+			RenewBefore:  "360h",
+			Organization: []string{"inxmail.com"},
+			IsCA:         false,
+			KeySize:      2048,
+			KeyAlgorithm: "rsa",
+			KeyEncoding:  "pkcs1",
+			Usages:       []string{"server auth", "client auth"},
+			DNSNames:     []string{"inxmail.com", "internal.inxmail.com"},
+			IPAddresses:  []string{"192.168.0.1"},
+			IssuerRef: CMIssuerRef{
+				Name: "cl-ca-issuer",
+				Kind: "ClusterIssuer",
+			},
+		},
+	}
+	log.Println(s.TypeMeta)
+	c := v1alpha3.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cert-inf-test",
+			Namespace: "inf",
+			// OwnerReferences: map[string]interface{}{},
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "cert-manager.io/v1alpha3",
+			Kind:       "Certificate",
+		},
+		Spec: v1alpha3.CertificateSpec{
+			SecretName:  "cert-inf-test",
+			Duration:    &metav1.Duration{365 * 24 * time.Hour},
+			RenewBefore: &metav1.Duration{300 * 24 * time.Hour},
+			// Organization: []string{"inxmail.com"},
+			IsCA:         false,
+			KeySize:      2048,
+			KeyAlgorithm: "rsa",
+			KeyEncoding:  "pkcs1",
+			Usages:       []v1alpha3.KeyUsage{v1alpha3.UsageAny},
+			DNSNames:     []string{"inxmail.com", "internal.inxmail.com"},
+			IPAddresses:  []string{"192.168.0.1"},
+			IssuerRef:    cmmeta.ObjectReference{},
+		},
+	}
+	log.Println(c.TypeMeta.Kind)
+	localSchemeBuilder.Register(addTypes)
+	localSchemeBuilder
+
+	result, err := dclientset.Resource(resource).Namespace("inf").Create(context.TODO(), &unstructured.Unstructured{Object: structs.Map(c)}, metav1.CreateOptions{})
+	log.Println(result)
+	log.Println(err)
+	log.Println("asd")
 
 	// informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 	// 	AddFunc: onAdd,
@@ -88,6 +158,13 @@ controllerLoop:
 	// 	return
 	// }
 	// <-stopper
+}
+
+func addTypes(scheme *scheme.Scheme) error {
+	scheme.AddKnownTypes(SchemeGroupVersion,
+		&v1alpha3.Certificate{},
+	)
+	return nil
 }
 
 // onAdd is the function executed when the kubernetes informer notified the

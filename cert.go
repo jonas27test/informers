@@ -12,14 +12,15 @@ import (
 	"k8s.io/client-go/dynamic/dynamicinformer"
 )
 
-func genCert() *unstructured.Unstructured {
+func genCert(name string, ownerRef string, ownderID string) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "cert-manager.io/v1alpha3",
 			"kind":       "Certificate",
 			"metadata": map[string]interface{}{
-				"name":      "cert-inf-test",
-				"namespace": "inf",
+				"name":            "cert-inf-test",
+				"namespace":       "inf",
+				"ownerReferences": map[string]interface{}{},
 			},
 			"spec": map[string]interface{}{
 				"secretName":   "cert-inf-test",
@@ -49,7 +50,7 @@ func Create(ns string, dclientset dynamic.Interface, dfactory dynamicinformer.Dy
 		Version:  "v1alpha3",
 		Resource: "Certificates",
 	}
-	result, err := dclientset.Resource(resource).Namespace(ns).Create(context.TODO(), genCert(), metav1.CreateOptions{})
+	result, err := dclientset.Resource(resource).Namespace(ns).Create(context.TODO(), genCert("b", "b", "b"), metav1.CreateOptions{})
 	if err != nil {
 		log.Println(err)
 	}
