@@ -26,6 +26,7 @@ func main() {
 	if err != nil {
 		log.Panicln(err.Error())
 	}
+	// log.
 	// factory := informers.NewSharedInformerFactory(clientset, 0)
 
 	// Grab a dynamic interface that we can create informers from

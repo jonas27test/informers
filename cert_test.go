@@ -8,6 +8,8 @@ import (
 	"github.com/fatih/structs"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func TestCMCertificate(t *testing.T) {
@@ -23,6 +25,10 @@ func TestCMCertificate(t *testing.T) {
 	if string(certString) != result {
 		panic("Strings don't match!")
 	}
+}
+
+func TestStruct(t *testing.T) {
+	unstructured.Unstructured{certGen()}
 }
 
 func certGen() CMCertificate {
@@ -55,17 +61,21 @@ func certGen() CMCertificate {
 	}
 }
 
-// func dumpMap(space string, m map[string]interface{}) {
-// 	for k, v := range m {
-// 		if mv, ok := v.(map[string]interface{}); ok {
-// 			fmt.Printf("{ \"%v\": \n", k)
-// 			dumpMap(space+"\t", mv)
-// 			fmt.Printf("}\n")
-// 		} else {
-// 			fmt.Printf("%v %v : %v\n", space, k, v)
-// 		}
-// 	}
-// }
+// DeepCopyObject returns a generically typed copy of an object
+func (in *CMCertificate) DeepCopyObject() runtime.Object {
+	out := CMCertificate{}
+	in.DeepCopyInto(&out)
+
+	return &out
+}
+
+func (in *CMCertificate) DeepCopyInto(out *CMCertificate) {
+	out.TypeMeta = in.TypeMeta
+	out.ObjectMeta = in.ObjectMeta
+	out.Spec = CMCertSpec{
+		SecretName: in.Spec.SecretName,
+	}
+}
 
 type CMCertificate struct {
 	TypeMeta   metav1.TypeMeta   `json:",inline"`
@@ -89,9 +99,9 @@ type CMCertSpec struct {
 	KeyEncoding  string   `json:"KeyEncoding,omitempty"`
 	Usages       []string `json:"usages,omitempty"`
 	// At least one of a DNS Name, USI SAN, or IP address is required.
-	DnsNames    []string `json:"dnsNames,required"`
-	UriSANs     []string `json:"uriSANs,omitempty"`
-	IpAddresses []string `json:"ipAddresses,omitempty"`
+	DNSNames    []string `json:"dnsNames,required"`
+	URISANs     []string `json:"uriSANs,omitempty"`
+	IPAddresses []string `json:"ipAddresses,omitempty"`
 	// Issuer references are always required. (Either Cluster or NS)
 	IssuerRef CMIssuerRef `json:"issuerRef,required"`
 }
