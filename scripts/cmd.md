@@ -6,3 +6,5 @@ microk8s kubectl port-forward -n kube-system service/kubernetes-dashboard 10443:
 
 #### Get all Resource APIs
 kubectl api-resources -o wide
+kubectl api-resources --api-group core -o wide
+kubectl explain Certificate

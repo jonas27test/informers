@@ -1,13 +1,17 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"log"
 	"testing"
 
-	"github.com/fatih/structs"
-
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 func before(name string) {
@@ -15,49 +19,109 @@ func before(name string) {
 	log.Println(name)
 }
 
-func TestStruct(t *testing.T) {
-	log.Println("")
+func TestDeleteService(t *testing.T) {
+	before("TestDeleteService")
+	clientset, _ := connect()
+	ns := "inf"
+	svcName1 := "inf-svc1"
+	deleteService(svcName1, ns, clientset)
 }
 
-func genCert(name string, ownerRef string, ownderID string, ownerKind string, controller bool) *unstructured.Unstructured {
-	c := v1alpha3.Certificate{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "cert-manager.io/v1alpha3",
-			Kind:       "Certificate",
-		},
+// go test -run TestCreate
+func TestCreate(t *testing.T) {
+	before("TestCreate")
+	clientset, dclientset := connect()
+
+	ns := "inf"
+	svcName1 := "inf-svc1"
+	deleteService(svcName1, ns, clientset)
+	svc := createService(svcName1, ns, clientset)
+	// log.Println(svc.GetResourceVersion())
+	con := false
+	c := CMCertificate{
+		Fields: CertFields{
+			Name:        "cert-inf",
+			Namespace:   ns,
+			CommonName:  "jonasburster.de",
+			DNSNames:    []string{"jonasburster.de", "www.jonasburster.de"},
+			IPAddresses: []string{"123.123.123.123"},
+			Owner: []metav1.OwnerReference{metav1.OwnerReference{
+				APIVersion: svc.GetResourceVersion(),
+				// Kind:       svc.Kind,
+				Kind:               "Service",
+				Name:               svc.Name,
+				UID:                svc.UID,
+				Controller:         &con,
+				BlockOwnerDeletion: &con,
+			}}}}
+	c.Create(dclientset)
+
+	// deleteService(svcName1, ns, clientset)
+}
+
+// how should we handle get. Maybe we must register certificates before, that would be way nicer
+func TestGet(t *testing.T) {
+	before("TestGet")
+	_, dclientset := connect()
+	cert := Get(dclientset)
+	log.Println(cert)
+
+	// cm := &v1alpha3.Certificate{}
+	c := []byte{}
+	err := cert.UnmarshalJSON(c)
+	if err != nil {
+		log.Println(err)
+	}
+	log.Println(string(c))
+
+	// json.Unmarshal(, cm)
+
+}
+
+func TestUpdate(t *testing.T) {
+
+}
+
+func connect() (kubernetes.Clientset, dynamic.Interface) {
+	config, err := clientcmd.BuildConfigFromFlags("", "./conf/config")
+	if err != nil {
+		log.Panicln(err.Error())
+	}
+	defer runtime.HandleCrash()
+	_, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	clientset := kubernetes.NewForConfigOrDie(config)
+	// factory := informers.NewSharedInformerFactory(clientset, 0)
+	dclientset := dynamic.NewForConfigOrDie(config)
+	_ = dynamicinformer.NewDynamicSharedInformerFactory(dclientset, 0)
+	return *clientset, dclientset
+}
+
+func deleteService(name string, ns string, clientset kubernetes.Clientset) {
+	err := clientset.CoreV1().Services(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func createService(name string, ns string, clientset kubernetes.Clientset) *v1.Service {
+	svc := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cert-inf-test",
-			Namespace: "inf",
-			// map[string]interface{}{},
-			OwnerReferences: []metav1.OwnerReference{
-				metav1.OwnerReference{
-					Kind:               "Deployment",
-					APIVersion:         r.GetResourceVersion(),
-					Controller:         &controller,
-					UID:                r.UID,
-					Name:               r.Name,
-					BlockOwnerDeletion: &blockOwnerDeletion,
+			Name:      name,
+			Namespace: ns,
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
+				v1.ServicePort{
+					Name: "port",
+					Port: 8080,
 				},
 			},
 		},
-		Spec: v1alpha3.CertificateSpec{
-			SecretName:  "cert-inf-test",
-			Duration:    &metav1.Duration{365 * 24 * time.Hour},
-			RenewBefore: &metav1.Duration{300 * 24 * time.Hour},
-			// Organization: []string{"inxmail.com"},
-			IsCA:         false,
-			KeySize:      2048,
-			KeyAlgorithm: "rsa",
-			KeyEncoding:  "pkcs1",
-			Usages:       []v1alpha3.KeyUsage{v1alpha3.UsageAny},
-			DNSNames:     []string{"inxmail.com", "internal.inxmail.com", "inx.com"},
-			IPAddresses:  []string{"192.168.0.1"},
-			IssuerRef: cmmeta.ObjectReference{
-				Name:  "cl-issuer",
-				Kind:  "ClusterIssuer",
-				Group: "cert-manager.io",
-			},
-		},
 	}
-
+	svc, err := clientset.CoreV1().Services(ns).Create(context.TODO(), svc, metav1.CreateOptions{})
+	if err != nil {
+		log.Println(err)
+	}
+	return svc
 }

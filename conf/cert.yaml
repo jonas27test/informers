@@ -1,4 +1,4 @@
-apiVersion: cert-manager.io/v1alpha2
+apiVersion: cert-manager.io/v1alpha3
 kind: Certificate
 metadata:
   name: cert-inf-test
@@ -8,8 +8,6 @@ spec:
   secretName: webhook-server-tls
   duration: 2160h # 90d
   renewBefore: 360h # 15d
-  organization:
-  - jetstack
   # The use of the common name field has been deprecated since 2000 and is
   # discouraged from being used.
   # commonName: webhook.webhook.svc
@@ -17,25 +15,28 @@ spec:
   keySize: 2048
   keyAlgorithm: rsa
   keyEncoding: pkcs1
-  usages:
-    - server auth
-    - client auth
+  # usages:
+  #   - server auth
+  #   - client auth
   # At least one of a DNS Name, USI SAN, or IP address is required.
   dnsNames:
   - webhook
   - webhook.webhook
   - webhook.webhook.svc
   - webhook.webhook.svc.cluster.loca
-  uriSANs:
-  - spiffe://cluster.local/ns/webhook/sa/webhook
+  # uriSANs:
+  # - spiffe://cluster.local/ns/webhook/sa/webhook
   # ipAddresses:
   # - 192.168.0.5
   # Issuer references are always required.
   issuerRef:
-    name: ca-issuer
+    # name: ca-issuer
     # We can reference ClusterIssuers by changing the kind here.
     # The default value is Issuer (i.e. a locally namespaced Issuer)
-    kind: Issuer
+    # kind: Issuer
     # This is optional since cert-manager will default to this value however
     # if you are using an external issuer, change this to that issuer group.
-    group: cert-manager.io
+    # group: cert-manager.io
+    name:  "cl-issuer"
+    kind:  "ClusterIssuer"
+    group: "cert-manager.io"
