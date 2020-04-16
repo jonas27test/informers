@@ -1,0 +1,8 @@
+apiVersion: cert-manager.io/v1alpha3
+kind: ClusterIssuer
+metadata:
+  name: cl-issuer
+spec:
+  ca:
+    secretName: ca-key-pair
+    # Secret needs to be in Cert-manager ns

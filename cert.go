@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
+	"github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha3"
+	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -12,47 +16,38 @@ import (
 	"k8s.io/client-go/dynamic/dynamicinformer"
 )
 
-func genCert(name string, ownerRef string, ownderID string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "cert-manager.io/v1alpha3",
-			"kind":       "Certificate",
-			"metadata": map[string]interface{}{
-				"name":            "cert-inf-test",
-				"namespace":       "inf",
-				"ownerReferences": map[string]interface{}{},
-			},
-			"spec": map[string]interface{}{
-				"secretName":   "cert-inf-test",
-				"duration":     "2160h",
-				"renewBefore":  "360h",
-				"organization": []string{"inxmail.com"},
-				"isCA":         false,
-				"keySize":      2048,
-				"keyAlgorithm": "rsa",
-				"keyEncoding":  "pkcs1",
-				"usages":       []string{"server auth", "client auth"},
-				"dnsNames":     []string{"inxmail.com", "internal.inxmail.com"},
-				"ipAddresses":  []string{"192.168.0.1"},
-				"issuerRef": map[string]interface{}{
-					"name":  "ca-issuer",
-					"kind":  "Issuer",
-					"group": "cert-manager.io",
-				},
-			},
-		},
-	}
+type CMCertificate struct {
+	Certificate &v1alpha3.Certificate
 }
 
-func Create(ns string, dclientset dynamic.Interface, dfactory dynamicinformer.DynamicSharedInformerFactory) {
+
+
+func (c *CMCertificate) Create(ns string, dclientset dynamic.Interface, dfactory dynamicinformer.DynamicSharedInformerFactory) {
 	resource := schema.GroupVersionResource{
 		Group:    "cert-manager.io",
 		Version:  "v1alpha3",
 		Resource: "Certificates",
 	}
-	result, err := dclientset.Resource(resource).Namespace(ns).Create(context.TODO(), genCert("b", "b", "b"), metav1.CreateOptions{})
+	s, err := json.Marshal(c)
+	var dat map[string]interface{}
+	if err := json.Unmarshal(s, &dat); err != nil {
+		panic(err)
+	}
+	result, err := dclientset.Resource(resource).Namespace("inf").Create(context.TODO(), &unstructured.Unstructured{dat}, metav1.CreateOptions{})
 	if err != nil {
 		log.Println(err)
 	}
-	fmt.Printf("Created CMCertificate %q.\n", result.GetName())
+	// fmt.Printf("Created CMCertificate %q.\n", result.GetName())
+}
+
+func (c *CMCertificate) transformToUnstructured() {
+	s, err := json.Marshal(c)
+	if err != nil {
+		log.Println(err)
+	}
+	var dat map[string]interface{}
+	if err := json.Unmarshal(s, &dat); err != nil {
+		panic(err)
+	}
+	return &unstructured.Unstructured{dat}
 }

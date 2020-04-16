@@ -2,15 +2,14 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"log"
-	"strings"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	scheme "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 
@@ -20,7 +19,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/fatih/structs"
 	"github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha3"
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 )
@@ -56,10 +54,6 @@ func main() {
 	dclientset := dynamic.NewForConfigOrDie(config)
 	_ = dynamicinformer.NewDynamicSharedInformerFactory(dclientset, 0)
 
-	// var wg sync.WaitGroup
-
-	// routeUpdates := watchMandants(dfactory, ctx.Done(), &wg)
-
 	namespace := "inf"
 	resource := schema.GroupVersionResource{
 		Group:    "cert-manager.io",
@@ -67,63 +61,76 @@ func main() {
 		Resource: "certificates",
 	}
 
-	// controllerLoop:
-	// 	for {
-	// 		select {
-	// 		case <-ctx.Done():
-	// 			break controllerLoop
-	// 			// case: createCert := <-
-	// 		}
-	// 	}
-	// Create(namespace, dclientset, dfactory)
-	// result, err := client.Resource(resource).Namespace(namespace).Create(context.TODO(), Create(namespace, dclientset, dfactory), metav1.CreateOptions{})
-	// if err != nil {
-	// 	log.Println(err)
-	// }
-	// fmt.Printf("Created CMCertificate %q.\n", result.GetName())
-	list, err := client.Resource(resource).Namespace(namespace).List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		log.Panicln(err)
-	}
-	log.Println(list)
-	s := CMCertificate{
+	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cert-inf-test",
+			Name:      "inf",
 			Namespace: "inf",
-			// OwnerReferences: map[string]interface{}{},
 		},
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "cert-manager.io/v1alpha2",
-			Kind:       "Certificate",
-		},
-		Spec: CMCertSpec{
-			SecretName:   "cert-inf-test",
-			Duration:     "2160h",
-			RenewBefore:  "360h",
-			Organization: []string{"inxmail.com"},
-			IsCA:         false,
-			KeySize:      2048,
-			KeyAlgorithm: "rsa",
-			KeyEncoding:  "pkcs1",
-			Usages:       []string{"server auth", "client auth"},
-			DNSNames:     []string{"inxmail.com", "internal.inxmail.com"},
-			IPAddresses:  []string{"192.168.0.1"},
-			IssuerRef: CMIssuerRef{
-				Name: "cl-ca-issuer",
-				Kind: "ClusterIssuer",
+		Spec: appsv1.DeploymentSpec{
+			// Replicas: int32Ptr(2),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": "demo",
+				},
+			},
+			Template: apiv1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": "demo",
+					},
+				},
+				Spec: apiv1.PodSpec{
+					Containers: []apiv1.Container{
+						{
+							Name:  "web",
+							Image: "scratch",
+							Ports: []apiv1.ContainerPort{
+								{
+									Name:          "http",
+									Protocol:      apiv1.ProtocolTCP,
+									ContainerPort: 80,
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
-	log.Println(s.TypeMeta)
+	deploymentsClient := clientset.AppsV1().Deployments(namespace)
+	r, err := deploymentsClient.Create(context.TODO(), deployment, metav1.CreateOptions{})
+	if err != nil {
+		log.Println(err)
+	}
+	log.Println(r.GetResourceVersion())
+
+	list, err := client.Resource(resource).Namespace(namespace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Panicln(err)
+		log.Println(list)
+	}
+	list.GetResourceVersion()
+	controller := false
+	blockOwnerDeletion := false
 	c := v1alpha3.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cert-inf-test",
-			Namespace: "inf",
-			// OwnerReferences: map[string]interface{}{},
-		},
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "cert-manager.io/v1alpha3",
 			Kind:       "Certificate",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cert-inf-test",
+			Namespace: "inf",
+			// map[string]interface{}{},
+			OwnerReferences: []metav1.OwnerReference{
+				metav1.OwnerReference{
+					Kind:               "Deployment",
+					APIVersion:         r.GetResourceVersion(),
+					Controller:         &controller,
+					UID:                r.UID,
+					Name:               r.Name,
+					BlockOwnerDeletion: &blockOwnerDeletion,
+				},
+			},
 		},
 		Spec: v1alpha3.CertificateSpec{
 			SecretName:  "cert-inf-test",
@@ -135,49 +142,24 @@ func main() {
 			KeyAlgorithm: "rsa",
 			KeyEncoding:  "pkcs1",
 			Usages:       []v1alpha3.KeyUsage{v1alpha3.UsageAny},
-			DNSNames:     []string{"inxmail.com", "internal.inxmail.com"},
+			DNSNames:     []string{"inxmail.com", "internal.inxmail.com", "inx.com"},
 			IPAddresses:  []string{"192.168.0.1"},
-			IssuerRef:    cmmeta.ObjectReference{},
+			IssuerRef: cmmeta.ObjectReference{
+				Name:  "cl-issuer",
+				Kind:  "ClusterIssuer",
+				Group: "cert-manager.io",
+			},
 		},
 	}
-	log.Println(c.TypeMeta.Kind)
-	localSchemeBuilder.Register(addTypes)
-	localSchemeBuilder
 
-	result, err := dclientset.Resource(resource).Namespace("inf").Create(context.TODO(), &unstructured.Unstructured{Object: structs.Map(c)}, metav1.CreateOptions{})
+	s, err := json.Marshal(c)
+	var dat map[string]interface{}
+	if err := json.Unmarshal(s, &dat); err != nil {
+		panic(err)
+	}
+	result, err := dclientset.Resource(resource).Namespace("inf").Create(context.TODO(), &unstructured.Unstructured{dat}, metav1.CreateOptions{})
+	if err != nil {
+		log.Println(err)
+	}
 	log.Println(result)
-	log.Println(err)
-	log.Println("asd")
-
-	// informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-	// 	AddFunc: onAdd,
-	// })
-	// go informer.Run(stopper)
-	// if !cache.WaitForCacheSync(stopper, informer.HasSynced) {
-	// 	runtime.HandleError(fmt.Errorf("Timed out waiting for caches to sync"))
-	// 	return
-	// }
-	// <-stopper
-}
-
-func addTypes(scheme *scheme.Scheme) error {
-	scheme.AddKnownTypes(SchemeGroupVersion,
-		&v1alpha3.Certificate{},
-	)
-	return nil
-}
-
-// onAdd is the function executed when the kubernetes informer notified the
-// presence of a new kubernetes node in the cluster
-func onAdd(obj interface{}) {
-	// Cast the obj as node
-	pod := obj.(*corev1.Pod)
-	s, ok := pod.GetLabels()[pod.Spec.String()]
-	if strings.Contains(pod.Name, "informer") {
-		log.Println(pod.Name)
-		log.Println(s)
-	}
-	if ok {
-		fmt.Printf("It has the label!")
-	}
 }

@@ -15,50 +15,49 @@ func before(name string) {
 	log.Println(name)
 }
 
-func TestCMCertificate(t *testing.T) {
-	before("CertTest started")
-	cert := certGen()
-	log.Println(structs.Map(cert))
-	certString, err := json.Marshal(cert)
-	if err != nil {
-		log.Println(err)
-	}
-	result := `{"TypeMeta":{"kind":"Certificate","apiVersion":"cert-manager.io/v1alpha2"},"metadata":{"name":"cert-inf-test","namespace":"inf","creationTimestamp":null},"spec":{"secretName":"cert-inf-test","duration":"2160h","renewBefore":"360h","organization":["inxmail.com"],"keySize":2048,"keyAlgorithm":"rsa","KeyEncoding":"pkcs1","usages":["server auth","client auth"],"dnsNames":["inxmail.com","internal.inxmail.com"],"ipAddresses":["192.168.0.1"],"issuerRef":{"name":"cl-ca-issuer","kind":"ClusterIssuer"}}}`
-	if string(certString) != result {
-		panic("Strings don't match!")
-	}
-}
-
 func TestStruct(t *testing.T) {
 	log.Println("")
 }
 
-func certGen() CMCertificate {
-	return CMCertificate{
+func genCert(name string, ownerRef string, ownderID string, ownerKind string, controller bool) *unstructured.Unstructured {
+	c := v1alpha3.Certificate{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "cert-manager.io/v1alpha2",
+			APIVersion: "cert-manager.io/v1alpha3",
 			Kind:       "Certificate",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cert-inf-test",
 			Namespace: "inf",
+			// map[string]interface{}{},
+			OwnerReferences: []metav1.OwnerReference{
+				metav1.OwnerReference{
+					Kind:               "Deployment",
+					APIVersion:         r.GetResourceVersion(),
+					Controller:         &controller,
+					UID:                r.UID,
+					Name:               r.Name,
+					BlockOwnerDeletion: &blockOwnerDeletion,
+				},
+			},
 		},
-		Spec: CMCertSpec{
-			SecretName:   "cert-inf-test",
-			Duration:     "2160h",
-			RenewBefore:  "360h",
-			Organization: []string{"inxmail.com"},
+		Spec: v1alpha3.CertificateSpec{
+			SecretName:  "cert-inf-test",
+			Duration:    &metav1.Duration{365 * 24 * time.Hour},
+			RenewBefore: &metav1.Duration{300 * 24 * time.Hour},
+			// Organization: []string{"inxmail.com"},
 			IsCA:         false,
 			KeySize:      2048,
 			KeyAlgorithm: "rsa",
 			KeyEncoding:  "pkcs1",
-			Usages:       []string{"server auth", "client auth"},
-			DNSNames:     []string{"inxmail.com", "internal.inxmail.com"},
+			Usages:       []v1alpha3.KeyUsage{v1alpha3.UsageAny},
+			DNSNames:     []string{"inxmail.com", "internal.inxmail.com", "inx.com"},
 			IPAddresses:  []string{"192.168.0.1"},
-			IssuerRef: CMIssuerRef{
-				Name: "cl-ca-issuer",
-				Kind: "ClusterIssuer",
+			IssuerRef: cmmeta.ObjectReference{
+				Name:  "cl-issuer",
+				Kind:  "ClusterIssuer",
+				Group: "cert-manager.io",
 			},
 		},
 	}
+
 }

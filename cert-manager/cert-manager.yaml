@@ -6589,6 +6589,7 @@ spec:
           args:
           - --v=2
           - --cluster-resource-namespace=$(POD_NAMESPACE)
+          - --enable-certificate-owner-ref=true
           - --leader-election-namespace=kube-system
           - --webhook-namespace=$(POD_NAMESPACE)
           - --webhook-ca-secret=cert-manager-webhook-ca
