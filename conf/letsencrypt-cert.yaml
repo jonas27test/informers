@@ -6,7 +6,7 @@ metadata:
   namespace: inf
 spec:
   # Secret names are always required.
-  secretName: webhook-server-tls
+  secretName: cert-inf-test
   duration: 2160h # 90d
   renewBefore: 360h # 15d
   # The use of the common name field has been deprecated since 2000 and is
@@ -21,10 +21,7 @@ spec:
     - client auth
   # At least one of a DNS Name, USI SAN, or IP address is required.
   dnsNames:
-  - webhook
-  - webhook.webhook
-  - webhook.webhook.svc
-  - webhook.webhook.svc.cluster.loca
+  - jonasburster.de
   # uriSANs:
   # - spiffe://cluster.local/ns/webhook/sa/webhook
   # ipAddresses:
@@ -37,7 +34,8 @@ spec:
     # kind: Issuer
     # This is optional since cert-manager will default to this value however
     # if you are using an external issuer, change this to that issuer group.
-    name:  "cl-issuer",
-    kind:  "ClusterIssuer",
-    group: "cert-manager.io",
+    # group: cert-manager.io
+    name:  "letsencrypt-staging"
+    kind:  "ClusterIssuer"
+    group: "cert-manager.io"
 EOF
