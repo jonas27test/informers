@@ -17,7 +17,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: echo1
-#   namespace: test
+  namespace: test
 spec:
   ports:
   - port: 80
@@ -31,7 +31,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: echo1
-#   namespace: test
+  namespace: test
 spec:
   selector:
     matchLabels:
@@ -68,41 +68,41 @@ spec:
           servicePort: 80
 EOF
 
-cat <<EOF | kubectl apply -f -
-apiVersion: apps/v1
-kind: Deployment
-metadata: 
-  name: hello-world
-  namespace: test
-spec: 
-  selector:
-    matchLabels:
-      app: hello-world
-  replicas: 1
-  template: 
-    metadata: 
-      labels: 
-        app: hello-world
-    spec: 
-      containers: 
-        - image: "gokul93/hello-world:latest"
-          imagePullPolicy: Always
-          name: hello-world-container
-          ports: 
-            - containerPort: 8080
----
-apiVersion: v1
-kind: Service
-metadata: 
-  name: hello-world
-  namespace: test
-spec: 
-  ports: 
-     -  port: 8080
-        protocol: TCP
-        targetPort: 8080
-        nodePort: 31112
-  selector: 
-    app: hello-world
-  type: NodePort
-EOF
+# cat <<EOF | kubectl apply -f -
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata: 
+#   name: hello-world
+#   namespace: test
+# spec: 
+#   selector:
+#     matchLabels:
+#       app: hello-world
+#   replicas: 1
+#   template: 
+#     metadata: 
+#       labels: 
+#         app: hello-world
+#     spec: 
+#       containers: 
+#         - image: "gokul93/hello-world:latest"
+#           imagePullPolicy: Always
+#           name: hello-world-container
+#           ports: 
+#             - containerPort: 8080
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata: 
+#   name: hello-world
+#   namespace: test
+# spec: 
+#   ports: 
+#      -  port: 8080
+#         protocol: TCP
+#         targetPort: 8080
+#         nodePort: 31112
+#   selector: 
+#     app: hello-world
+#   type: NodePort
+# EOF
