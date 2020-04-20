@@ -9,6 +9,6 @@ openssl req -x509 -new -nodes -key ca.key -subj "/CN=${COMMON_NAME}" -days 3650 
 
 # Save the signing key pair as a Secret in k8s. 
 # For cluster issuer use cert-manager ns
-microk8s.kubectl create secret tls ca-key-pair --cert=ca.crt --key=ca.key -n cert-manager
+kubectl create secret tls ca-key-pair --cert=ca.crt --key=ca.key -n cert-manager
 
-microk8s.kubectl apply -f cert-manager/issuer.yaml
+kubectl apply -f cert-manager/letsencryptIssuer.yaml

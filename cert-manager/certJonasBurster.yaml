@@ -2,11 +2,11 @@ cat <<EOF | kubectl apply -f -
 apiVersion: cert-manager.io/v1alpha3
 kind: Certificate
 metadata:
-  name: test-not-there1
+  name: cert-jonas-test
   namespace: test
 spec:
   # Secret names are always required.
-  secretName: not-there-secret1
+  secretName: jonas-server-tls
   duration: 2160h # 90d
   renewBefore: 360h # 15d
   # The use of the common name field has been deprecated since 2000 and is
@@ -35,7 +35,7 @@ spec:
     # kind: Issuer
     # This is optional since cert-manager will default to this value however
     # if you are using an external issuer, change this to that issuer group.
-    name:  "letsencrypt-staging"
+    name:  "letsencrypt-prod"
     kind:  "ClusterIssuer"
     group: "cert-manager.io"
 EOF

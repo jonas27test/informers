@@ -5,8 +5,10 @@
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/nginx-0.30.0/deploy/static/mandatory.yaml
 # NodePort
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/nginx-0.30.0/deploy/static/provider/baremetal/service-nodeport.yaml
+
+
 # check nodeport
-kubectl get svc --namespace=ingress-nginx
+kubectl get svc -n ingress-nginx
 
 # Create test namespace
 kubectl create ns test
@@ -17,7 +19,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: echo1
-#   namespace: test
+  namespace: test
 spec:
   ports:
   - port: 80
@@ -26,12 +28,13 @@ spec:
   selector:
     app: echo1
   type: NodePort
+
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: echo1
-#   namespace: test
+  namespace: test
 spec:
   selector:
     matchLabels:
@@ -56,53 +59,122 @@ cat <<EOF | kubectl apply -f -
 apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
-  name: echo-ingress
-#   namespace: test
+  name: ingress
+  namespace: katchblog
+  annotations:
+   nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   rules:
-  - host: echo1.jonasburster.de
+  - host: katchblog.com
     http:
       paths:
-      - backend:
-          serviceName: echo1
+      - path: /*
+        pathType: Prefix
+        backend:
+          serviceName: katchblog
           servicePort: 80
+  - host: www.katchblog.com
+    http:
+      paths:
+      - path: /*
+        pathType: Prefix
+        backend:
+          serviceName: katchblog
+          servicePort: 80
+EOF
+#   - host: echo.jonasburster.de
+#     http:
+#       paths:
+#       - path: /*
+#         pathType: Prefix
+#         backend:
+#           serviceName: echo1
+#           servicePort: 80
+
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: katchblog-volume
+  namespace: katchblog
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/volumes/katchblog"
+EOF
+---
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: katchblog-claim
+  namespace: katchblog
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+EOF
+
+
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Service
+metadata:
+  name: katchblog
+  namespace: katchblog
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 31111
+  selector:
+    app: katchblog
+---
 EOF
 
 cat <<EOF | kubectl apply -f -
 apiVersion: apps/v1
 kind: Deployment
-metadata: 
-  name: hello-world
-  namespace: test
+metadata:
+  name: katchblog
+  namespace: katchblog
 spec: 
   selector:
     matchLabels:
-      app: hello-world
+      app: katchblog
   replicas: 1
-  template: 
-    metadata: 
-      labels: 
-        app: hello-world
-    spec: 
-      containers: 
-        - image: "gokul93/hello-world:latest"
-          imagePullPolicy: Always
-          name: hello-world-container
-          ports: 
-            - containerPort: 8080
----
-apiVersion: v1
-kind: Service
-metadata: 
-  name: hello-world
-  namespace: test
-spec: 
-  ports: 
-     -  port: 8080
-        protocol: TCP
-        targetPort: 8080
-        nodePort: 31112
-  selector: 
-    app: hello-world
-  type: NodePort
+  template:
+    metadata:
+      labels:
+        app: katchblog
+    spec:
+      volumes:
+      - name: katchblog-storage
+        persistentVolumeClaim: 
+          claimName: katchblog-claim
+      - name: katchblog-tls
+        secret:
+          secretName: katchblog-secret
+      containers:
+      - name: katchblog
+        image: httpd:2.4
+        ports:
+        - containerPort: 80
+        volumeMounts:
+          - mountPath: /usr/local/apache2/htdocs/
+            name: katchblog-storage
+          - mountPath: "/tls/certs/"
+            name: katchblog-tls
+            readOnly: true
+      restartPolicy: Always
 EOF
