@@ -19,7 +19,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: echo1
-  namespace: test
+  namespace: inf
 spec:
   ports:
   - port: 80
@@ -28,6 +28,7 @@ spec:
   selector:
     app: echo1
   type: NodePort
+EOF
 
 ---
 apiVersion: apps/v1

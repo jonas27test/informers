@@ -2,11 +2,11 @@ cat <<EOF | kubectl apply -f -
 apiVersion: cert-manager.io/v1alpha3
 kind: Certificate
 metadata:
-  name: test-not-there1
-  namespace: test
+  name: test-not-3
+  namespace: inf
 spec:
   # Secret names are always required.
-  secretName: not-there-secret1
+  secretName: not-there-secret3
   duration: 2160h # 90d
   renewBefore: 360h # 15d
   # The use of the common name field has been deprecated since 2000 and is
@@ -21,8 +21,8 @@ spec:
     - client auth
   # At least one of a DNS Name, USI SAN, or IP address is required.
   dnsNames:
-  - jonasburster.de
-  - www.jonasburster.de
+  - jonasbxsdfsurster.de
+  - www.josdfgnasburster.de
   # uriSANs:
   # - spiffe://cluster.local/ns/webhook/sa/webhook
   # ipAddresses:
